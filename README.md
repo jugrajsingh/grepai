@@ -13,10 +13,10 @@ A privacy-first semantic code search CLI tool. Unlike `grep` (exact text matchin
 ## Installation
 
 ```bash
-go install github.com/yoanbernabeu/grepai/cmd/grepai@latest
+curl -sSL https://raw.githubusercontent.com/yoanbernabeu/grepai/main/install.sh | sh
 ```
 
-Or download from [Releases](https://github.com/yoanbernabeu/grepai/releases).
+Or download manually from [Releases](https://github.com/yoanbernabeu/grepai/releases).
 
 ## Quick Start
 
