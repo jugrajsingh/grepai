@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-11
+
 ### Added
 - **MCP Server Mode**: New `grepai mcp-serve` command for Model Context Protocol integration (#18)
   - Exposes grepai as native MCP tools for AI agents (Claude Code, Cursor, Windsurf, etc.)
