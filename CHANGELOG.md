@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-01-11
+
+### Documentation
+- **Sidebar Reorganization**: Moved "Search Boost" and "Hybrid Search" from Configuration to Features section
+- **Configuration Reference**: Updated full configuration reference with correct field names
+  - Added missing options: `version`, `watch.debounce_ms`, `trace.mode`, `trace.enabled_languages`, `trace.exclude_patterns`
+  - Fixed `scanner.ignore` → `ignore` (root level)
+  - Fixed `store.postgres.connection_string` → `dsn`
+  - Removed `store.gob.path` (handled automatically)
+- **Trace Documentation**: Added missing supported languages (C, C++, Zig, Rust) to the languages table
+
 ## [0.7.1] - 2026-01-11
 
 ### Added
