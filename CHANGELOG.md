@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-01-23
+
+### Added
+
+- **Pascal/Delphi Language Support for Trace**: Symbol extraction and call graph analysis now supports Pascal/Delphi (#71) - @yoanbernabeu
+  - Functions: `function FunctionName(params): ReturnType;`
+  - Procedures: `procedure ProcedureName(params);`
+  - Class methods: `function TClassName.MethodName` / `procedure TClassName.MethodName`
+  - Classes: `TClassName = class(TParent)` / `TClassName = class`
+  - Interfaces: `IInterfaceName = interface`
+  - Types: records, packed records, enums, type aliases, arrays
+  - Pascal keywords added to filter out false positives
+  - `.pas` and `.dpr` added to default traced languages and supported extensions
+
+- **Claude Code Release Skill**: New skill for automated release process
+  - Checks CI status before proceeding
+  - Determines version type (major/minor/patch) based on changes
+  - Updates CHANGELOG and documentation version
+  - Credits contributors automatically
+
 ## [0.20.1] - 2026-01-23
 
 ### Fixed
@@ -335,7 +355,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.20.1...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/yoanbernabeu/grepai/compare/v0.20.1...v0.21.0
 [0.20.1]: https://github.com/yoanbernabeu/grepai/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/yoanbernabeu/grepai/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/yoanbernabeu/grepai/compare/v0.18.0...v0.19.0
