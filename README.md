@@ -35,12 +35,12 @@
 
 ## Installation
 
-**Homebrew (macOS/Linux):**
+**Homebrew (macOS):**
 ```bash
 brew install yoanbernabeu/tap/grepai
 ```
 
-**Shell script (Linux/macOS):**
+**Linux/macOS:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/yoanbernabeu/grepai/main/install.sh | sh
 ```

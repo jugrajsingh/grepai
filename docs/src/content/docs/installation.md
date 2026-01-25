@@ -7,9 +7,9 @@ description: How to install grepai
 
 - **Ollama** (for local embeddings) or an **OpenAI API key** (for cloud embeddings)
 
-## Homebrew (Recommended)
+## Homebrew (macOS)
 
-The easiest way to install grepai on macOS or Linux:
+The easiest way to install grepai on macOS:
 
 ```bash
 brew install yoanbernabeu/tap/grepai
@@ -21,15 +21,23 @@ To upgrade later:
 brew upgrade grepai
 ```
 
-## Shell Script
+## Shell Script (Linux/macOS)
 
-Alternative installation via shell script:
+Recommended for Linux, alternative for macOS:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/yoanbernabeu/grepai/main/install.sh | sh
 ```
 
 Or download directly from [Releases](https://github.com/yoanbernabeu/grepai/releases).
+
+## Windows (PowerShell)
+
+Run the following command in your PowerShell terminal:
+
+```powershell
+irm https://raw.githubusercontent.com/yoanbernabeu/grepai/main/install.ps1 | iex
+```
 
 ## Install from Source
 
@@ -46,14 +54,6 @@ make build
 # The binary is created at ./bin/grepai
 # Move it to your PATH
 sudo mv ./bin/grepai /usr/local/bin/
-```
-
-## Install on Windows (PowerShell)
-
-Run the following command in your PowerShell terminal to install `grepai` automatically:
-
-```powershell
-irm https://raw.githubusercontent.com/yoanbernabeu/grepai/main/install.ps1 | iex
 ```
 
 ## Install Ollama (Recommended)
