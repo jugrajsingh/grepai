@@ -56,11 +56,12 @@ type BoostRule struct {
 }
 
 type EmbedderConfig struct {
-	Provider   string `yaml:"provider"` // ollama | lmstudio | openai
-	Model      string `yaml:"model"`
-	Endpoint   string `yaml:"endpoint,omitempty"`
-	APIKey     string `yaml:"api_key,omitempty"`
-	Dimensions int    `yaml:"dimensions,omitempty"`
+	Provider    string `yaml:"provider"` // ollama | lmstudio | openai
+	Model       string `yaml:"model"`
+	Endpoint    string `yaml:"endpoint,omitempty"`
+	APIKey      string `yaml:"api_key,omitempty"`
+	Dimensions  int    `yaml:"dimensions,omitempty"`
+	Parallelism int    `yaml:"parallelism"` // Number of parallel workers for batch embedding (default: 4)
 }
 
 type StoreConfig struct {
@@ -105,6 +106,7 @@ func DefaultConfig() *Config {
 			Model:      "nomic-embed-text",
 			Endpoint:   "http://localhost:11434",
 			Dimensions: 768,
+			// Parallelism intentionally omitted - only applies to OpenAI
 		},
 		Store: StoreConfig{
 			Backend: "gob",
@@ -261,6 +263,11 @@ func (c *Config) applyDefaults() {
 		default:
 			c.Embedder.Dimensions = defaults.Embedder.Dimensions
 		}
+	}
+
+	// Parallelism default (only used by OpenAI embedder)
+	if c.Embedder.Parallelism <= 0 {
+		c.Embedder.Parallelism = 4
 	}
 
 	// Chunking defaults

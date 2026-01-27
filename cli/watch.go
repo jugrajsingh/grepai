@@ -269,6 +269,7 @@ func initializeEmbedder(ctx context.Context, cfg *config.Config) (embedder.Embed
 			embedder.WithOpenAIKey(cfg.Embedder.APIKey),
 			embedder.WithOpenAIEndpoint(cfg.Embedder.Endpoint),
 			embedder.WithOpenAIDimensions(cfg.Embedder.Dimensions),
+			embedder.WithOpenAIParallelism(cfg.Embedder.Parallelism),
 		)
 	case "lmstudio":
 		lmstudioEmb := embedder.NewLMStudioEmbedder(
@@ -369,13 +370,18 @@ func runInitialScan(ctx context.Context, idx *indexer.Indexer, scanner *indexer.
 	var stats *indexer.IndexStats
 	var err error
 	if !isBackgroundChild {
-		stats, err = idx.IndexAllWithProgress(ctx, func(info indexer.ProgressInfo) {
-			printProgress(info.Current, info.Total, info.CurrentFile)
-		})
+		stats, err = idx.IndexAllWithBatchProgress(ctx,
+			func(info indexer.ProgressInfo) {
+				printProgress(info.Current, info.Total, info.CurrentFile)
+			},
+			func(info indexer.BatchProgressInfo) {
+				printBatchProgress(info)
+			},
+		)
 		// Clear progress line
 		fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
 	} else {
-		stats, err = idx.IndexAllWithProgress(ctx, nil)
+		stats, err = idx.IndexAllWithBatchProgress(ctx, nil, nil)
 	}
 
 	if err != nil {
@@ -664,6 +670,33 @@ func printProgress(current, total int, filePath string) {
 
 	// Print with carriage return to overwrite previous line
 	fmt.Printf("\rIndexing [%s] %3.0f%% (%d/%d) %s", bar, percent, current, total, displayPath)
+}
+
+func printBatchProgress(info indexer.BatchProgressInfo) {
+	if info.Retrying {
+		// Clear current line and show retry message with rate limit visibility
+		fmt.Printf("\r%s\r", strings.Repeat(" ", 80))
+		reason := describeRetryReason(info.StatusCode)
+		fmt.Printf("%s - Retrying batch %d (attempt %d/5)...\n", reason, info.BatchIndex+1, info.Attempt)
+	} else if info.TotalChunks > 0 {
+		// Show progress percentage after batch completion
+		percentage := float64(info.CompletedChunks) / float64(info.TotalChunks) * 100
+		fmt.Printf("\rEmbedding progress: %d/%d chunks (%.0f%%)...", info.CompletedChunks, info.TotalChunks, percentage)
+	}
+}
+
+// describeRetryReason returns a human-readable description of why a retry is happening
+func describeRetryReason(statusCode int) string {
+	switch {
+	case statusCode == 429:
+		return "Rate limited (429)"
+	case statusCode >= 500 && statusCode < 600:
+		return fmt.Sprintf("Server error (%d)", statusCode)
+	case statusCode > 0:
+		return fmt.Sprintf("HTTP error (%d)", statusCode)
+	default:
+		return "Error"
+	}
 }
 
 // runWorkspaceWatch handles workspace-level watch operations
@@ -1048,12 +1081,17 @@ func indexWorkspaceProject(ctx context.Context, project config.ProjectEntry, ws 
 	// Run initial scan
 	var stats *indexer.IndexStats
 	if !isBackgroundChild {
-		stats, err = idx.IndexAllWithProgress(ctx, func(info indexer.ProgressInfo) {
-			printProgress(info.Current, info.Total, project.Name+":"+info.CurrentFile)
-		})
+		stats, err = idx.IndexAllWithBatchProgress(ctx,
+			func(info indexer.ProgressInfo) {
+				printProgress(info.Current, info.Total, project.Name+":"+info.CurrentFile)
+			},
+			func(info indexer.BatchProgressInfo) {
+				printBatchProgress(info)
+			},
+		)
 		fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
 	} else {
-		stats, err = idx.IndexAllWithProgress(ctx, nil)
+		stats, err = idx.IndexAllWithBatchProgress(ctx, nil, nil)
 	}
 
 	if err != nil {

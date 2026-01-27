@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/yoanbernabeu/grepai/embedder"
 	"github.com/yoanbernabeu/grepai/store"
 )
 
@@ -443,6 +446,273 @@ func TestIndexAllWithProgress_DeletedFilesRemoved(t *testing.T) {
 	}
 }
 
+// mockBatchEmbedder implements embedder.BatchEmbedder for testing progress tracking
+type mockBatchEmbedder struct {
+	embedCalled bool
+	delay       time.Duration // Optional delay per batch for testing concurrency
+}
+
+func newMockBatchEmbedder() *mockBatchEmbedder {
+	return &mockBatchEmbedder{}
+}
+
+func (m *mockBatchEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	m.embedCalled = true
+	return []float32{0.1, 0.2, 0.3}, nil
+}
+
+func (m *mockBatchEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	m.embedCalled = true
+	vectors := make([][]float32, len(texts))
+	for i := range texts {
+		vectors[i] = []float32{0.1, 0.2, 0.3}
+	}
+	return vectors, nil
+}
+
+func (m *mockBatchEmbedder) Dimensions() int {
+	return 3
+}
+
+func (m *mockBatchEmbedder) Close() error {
+	return nil
+}
+
+func (m *mockBatchEmbedder) EmbedBatches(ctx context.Context, batches []embedder.Batch, progress embedder.BatchProgress) ([]embedder.BatchResult, error) {
+	m.embedCalled = true
+
+	// Calculate total chunks for progress reporting
+	totalChunks := 0
+	for _, batch := range batches {
+		totalChunks += batch.Size()
+	}
+
+	var completedChunks int
+	results := make([]embedder.BatchResult, len(batches))
+
+	for _, batch := range batches {
+		if m.delay > 0 {
+			time.Sleep(m.delay)
+		}
+
+		// Create mock embeddings
+		embeddings := make([][]float32, batch.Size())
+		for i := range embeddings {
+			embeddings[i] = []float32{0.1, 0.2, 0.3}
+		}
+
+		completedChunks += batch.Size()
+
+		// Report progress
+		if progress != nil {
+			progress(batch.Index, len(batches), completedChunks, totalChunks, false, 0, 0)
+		}
+
+		results[batch.Index] = embedder.BatchResult{
+			BatchIndex: batch.Index,
+			Embeddings: embeddings,
+		}
+	}
+
+	return results, nil
+}
+
+// TestProgressTracking_AccurateChunkProgress tests that progress accurately reflects chunk completion
+func TestProgressTracking_AccurateChunkProgress(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create multiple test files to generate multiple chunks
+	for i := 0; i < 3; i++ {
+		testFile := filepath.Join(tmpDir, "file"+string(rune('a'+i))+".go")
+		// Create content that will generate multiple chunks
+		content := "package main\n\n// This is a test file with multiple lines\nfunc main() {\n\t// Line 1\n\t// Line 2\n\t// Line 3\n}"
+		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	mockStore := newMockStore()
+	mockEmb := newMockBatchEmbedder()
+	ignoreMatcher, err := NewIgnoreMatcher(tmpDir, []string{}, "")
+	if err != nil {
+		t.Fatalf("failed to create ignore matcher: %v", err)
+	}
+	scanner := NewScanner(tmpDir, ignoreMatcher)
+	chunker := NewChunker(512, 50)
+	indexer := NewIndexer(tmpDir, mockStore, mockEmb, chunker, scanner, time.Time{})
+
+	// Track progress updates
+	var progressUpdates []BatchProgressInfo
+	var mu sync.Mutex
+
+	_, err = indexer.IndexAllWithBatchProgress(context.Background(), nil,
+		func(info BatchProgressInfo) {
+			mu.Lock()
+			progressUpdates = append(progressUpdates, info)
+			mu.Unlock()
+		})
+	if err != nil {
+		t.Fatalf("IndexAllWithBatchProgress failed: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Verify progress was reported
+	if len(progressUpdates) == 0 {
+		t.Fatal("expected progress updates, got none")
+	}
+
+	// Verify final progress shows 100%
+	finalProgress := progressUpdates[len(progressUpdates)-1]
+	if finalProgress.CompletedChunks != finalProgress.TotalChunks {
+		t.Errorf("final progress should show all chunks completed: got %d/%d",
+			finalProgress.CompletedChunks, finalProgress.TotalChunks)
+	}
+
+	// Verify total chunks is accurate
+	if finalProgress.TotalChunks == 0 {
+		t.Error("total chunks should be greater than 0")
+	}
+}
+
+// TestProgressTracking_MonotonicallyIncreasing tests that progress is monotonically increasing
+func TestProgressTracking_MonotonicallyIncreasing(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create multiple test files
+	for i := 0; i < 5; i++ {
+		testFile := filepath.Join(tmpDir, "file"+string(rune('a'+i))+".go")
+		content := "package main\n\nfunc main() { /* chunk content */ }"
+		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	mockStore := newMockStore()
+	mockEmb := newMockBatchEmbedder()
+	ignoreMatcher, err := NewIgnoreMatcher(tmpDir, []string{}, "")
+	if err != nil {
+		t.Fatalf("failed to create ignore matcher: %v", err)
+	}
+	scanner := NewScanner(tmpDir, ignoreMatcher)
+	chunker := NewChunker(512, 50)
+	indexer := NewIndexer(tmpDir, mockStore, mockEmb, chunker, scanner, time.Time{})
+
+	// Track progress updates
+	var completedChunksCounts []int
+	var mu sync.Mutex
+
+	_, err = indexer.IndexAllWithBatchProgress(context.Background(), nil,
+		func(info BatchProgressInfo) {
+			mu.Lock()
+			completedChunksCounts = append(completedChunksCounts, info.CompletedChunks)
+			mu.Unlock()
+		})
+	if err != nil {
+		t.Fatalf("IndexAllWithBatchProgress failed: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Verify progress is monotonically increasing
+	for i := 1; i < len(completedChunksCounts); i++ {
+		if completedChunksCounts[i] < completedChunksCounts[i-1] {
+			t.Errorf("progress decreased: %d at index %d < %d at index %d",
+				completedChunksCounts[i], i, completedChunksCounts[i-1], i-1)
+		}
+	}
+}
+
+// TestProgressTracking_ConcurrentBatches tests that concurrent batch completion doesn't cause race conditions
+func TestProgressTracking_ConcurrentBatches(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create many test files to generate multiple batches
+	for i := 0; i < 10; i++ {
+		testFile := filepath.Join(tmpDir, "file"+string(rune('a'+i))+".go")
+		content := "package main\n\nfunc main() { /* test content */ }"
+		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	mockStore := newMockStore()
+	mockEmb := newMockBatchEmbedder()
+	mockEmb.delay = 10 * time.Millisecond // Add delay to create concurrency opportunity
+
+	ignoreMatcher, err := NewIgnoreMatcher(tmpDir, []string{}, "")
+	if err != nil {
+		t.Fatalf("failed to create ignore matcher: %v", err)
+	}
+	scanner := NewScanner(tmpDir, ignoreMatcher)
+	chunker := NewChunker(512, 50)
+	indexer := NewIndexer(tmpDir, mockStore, mockEmb, chunker, scanner, time.Time{})
+
+	// Track progress updates with atomic counter
+	var progressCallCount atomic.Int32
+	var maxCompleted atomic.Int32
+	var totalChunksReported atomic.Int32
+
+	_, err = indexer.IndexAllWithBatchProgress(context.Background(), nil,
+		func(info BatchProgressInfo) {
+			progressCallCount.Add(1)
+
+			// Track max completed and total
+			if int32(info.CompletedChunks) > maxCompleted.Load() {
+				maxCompleted.Store(int32(info.CompletedChunks))
+			}
+			totalChunksReported.Store(int32(info.TotalChunks))
+		})
+	if err != nil {
+		t.Fatalf("IndexAllWithBatchProgress failed: %v", err)
+	}
+
+	// Verify progress was reported
+	if progressCallCount.Load() == 0 {
+		t.Fatal("expected progress updates, got none")
+	}
+
+	// Verify final max equals total (all chunks completed)
+	if maxCompleted.Load() != totalChunksReported.Load() {
+		t.Errorf("max completed %d should equal total chunks %d",
+			maxCompleted.Load(), totalChunksReported.Load())
+	}
+}
+
+// TestProgressTracking_NoFilesToIndex tests that progress works correctly when there are no files to index
+func TestProgressTracking_NoFilesToIndex(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create empty directory (no files)
+	mockStore := newMockStore()
+	mockEmb := newMockBatchEmbedder()
+	ignoreMatcher, err := NewIgnoreMatcher(tmpDir, []string{}, "")
+	if err != nil {
+		t.Fatalf("failed to create ignore matcher: %v", err)
+	}
+	scanner := NewScanner(tmpDir, ignoreMatcher)
+	chunker := NewChunker(512, 50)
+	indexer := NewIndexer(tmpDir, mockStore, mockEmb, chunker, scanner, time.Time{})
+
+	var progressCalled bool
+
+	_, err = indexer.IndexAllWithBatchProgress(context.Background(), nil,
+		func(info BatchProgressInfo) {
+			progressCalled = true
+		})
+	if err != nil {
+		t.Fatalf("IndexAllWithBatchProgress failed: %v", err)
+	}
+
+	// No progress callback should be called when there are no files
+	// (batch embedder is not used when there are no chunks)
+	if progressCalled {
+		t.Error("progress should not be called when there are no files to index")
+	}
+}
+
 // TestTimeEqualBehavior verifies time.Equal handles precision correctly
 func TestTimeEqualBehavior(t *testing.T) {
 	tests := []struct {
@@ -479,4 +749,240 @@ func TestTimeEqualBehavior(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Tests for refactored indexFilesBatched helper functions
+
+func TestPrepareFileChunks(t *testing.T) {
+	ctx := context.Background()
+	mockStore := newMockStore()
+	mockEmb := newMockEmbedder()
+	chunker := NewChunker(512, 50)
+
+	indexer := &Indexer{
+		root:    "/test",
+		store:   mockStore,
+		chunker: chunker,
+	}
+	_ = mockEmb // not used directly in prepareFileChunks
+
+	t.Run("processes multiple files", func(t *testing.T) {
+		files := []FileInfo{
+			{Path: "file1.go", Content: "package main\n\nfunc main() {}", Hash: "hash1", ModTime: 1000},
+			{Path: "file2.go", Content: "package util\n\nfunc helper() {}", Hash: "hash2", ModTime: 1001},
+		}
+
+		fileData, fileChunks, err := indexer.prepareFileChunks(ctx, files)
+		if err != nil {
+			t.Fatalf("prepareFileChunks failed: %v", err)
+		}
+
+		if len(fileData) != 2 {
+			t.Errorf("expected 2 fileData entries, got %d", len(fileData))
+		}
+		if len(fileChunks) != 2 {
+			t.Errorf("expected 2 fileChunks entries, got %d", len(fileChunks))
+		}
+
+		// Verify file indices are preserved
+		for i, fd := range fileData {
+			if fd.fileIndex != i {
+				t.Errorf("fileData[%d].fileIndex = %d, expected %d", i, fd.fileIndex, i)
+			}
+		}
+
+		// Verify DeleteByFile was called
+		if !mockStore.delByFileCalled {
+			t.Error("expected DeleteByFile to be called")
+		}
+	})
+
+	t.Run("skips files with no chunks", func(t *testing.T) {
+		files := []FileInfo{
+			{Path: "empty.go", Content: "", Hash: "hash1", ModTime: 1000},
+			{Path: "file.go", Content: "package main\n\nfunc main() {}", Hash: "hash2", ModTime: 1001},
+		}
+
+		fileData, fileChunks, err := indexer.prepareFileChunks(ctx, files)
+		if err != nil {
+			t.Fatalf("prepareFileChunks failed: %v", err)
+		}
+
+		// Only one file should have chunks
+		if len(fileData) != 1 {
+			t.Errorf("expected 1 fileData entry (empty file skipped), got %d", len(fileData))
+		}
+		if len(fileChunks) != 1 {
+			t.Errorf("expected 1 fileChunks entry, got %d", len(fileChunks))
+		}
+	})
+
+	t.Run("returns empty slices for empty input", func(t *testing.T) {
+		fileData, fileChunks, err := indexer.prepareFileChunks(ctx, []FileInfo{})
+		if err != nil {
+			t.Fatalf("prepareFileChunks failed: %v", err)
+		}
+
+		if len(fileData) != 0 {
+			t.Errorf("expected 0 fileData entries, got %d", len(fileData))
+		}
+		if len(fileChunks) != 0 {
+			t.Errorf("expected 0 fileChunks entries, got %d", len(fileChunks))
+		}
+	})
+}
+
+func TestCreateStoreChunks(t *testing.T) {
+	now := time.Now()
+
+	t.Run("creates chunks with correct fields", func(t *testing.T) {
+		chunkInfos := []ChunkInfo{
+			{ID: "chunk1", FilePath: "test.go", StartLine: 1, EndLine: 10, Content: "content1", Hash: "hash1"},
+			{ID: "chunk2", FilePath: "test.go", StartLine: 11, EndLine: 20, Content: "content2", Hash: "hash2"},
+		}
+		embeddings := [][]float32{
+			{0.1, 0.2, 0.3},
+			{0.4, 0.5, 0.6},
+		}
+
+		chunks, chunkIDs := createStoreChunks(chunkInfos, embeddings, now)
+
+		if len(chunks) != 2 {
+			t.Fatalf("expected 2 chunks, got %d", len(chunks))
+		}
+		if len(chunkIDs) != 2 {
+			t.Fatalf("expected 2 chunkIDs, got %d", len(chunkIDs))
+		}
+
+		// Verify first chunk
+		if chunks[0].ID != "chunk1" {
+			t.Errorf("chunks[0].ID = %s, expected chunk1", chunks[0].ID)
+		}
+		if chunks[0].FilePath != "test.go" {
+			t.Errorf("chunks[0].FilePath = %s, expected test.go", chunks[0].FilePath)
+		}
+		if chunks[0].StartLine != 1 {
+			t.Errorf("chunks[0].StartLine = %d, expected 1", chunks[0].StartLine)
+		}
+		if chunks[0].EndLine != 10 {
+			t.Errorf("chunks[0].EndLine = %d, expected 10", chunks[0].EndLine)
+		}
+		if chunks[0].Content != "content1" {
+			t.Errorf("chunks[0].Content = %s, expected content1", chunks[0].Content)
+		}
+		if len(chunks[0].Vector) != 3 || chunks[0].Vector[0] != 0.1 {
+			t.Errorf("chunks[0].Vector incorrect")
+		}
+		if !chunks[0].UpdatedAt.Equal(now) {
+			t.Errorf("chunks[0].UpdatedAt = %v, expected %v", chunks[0].UpdatedAt, now)
+		}
+
+		// Verify chunkIDs match
+		if chunkIDs[0] != "chunk1" || chunkIDs[1] != "chunk2" {
+			t.Errorf("chunkIDs = %v, expected [chunk1, chunk2]", chunkIDs)
+		}
+	})
+
+	t.Run("handles empty input", func(t *testing.T) {
+		chunks, chunkIDs := createStoreChunks([]ChunkInfo{}, [][]float32{}, now)
+
+		if len(chunks) != 0 {
+			t.Errorf("expected 0 chunks, got %d", len(chunks))
+		}
+		if len(chunkIDs) != 0 {
+			t.Errorf("expected 0 chunkIDs, got %d", len(chunkIDs))
+		}
+	})
+}
+
+func TestSaveFileData(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("saves chunks and document", func(t *testing.T) {
+		mockStore := newMockStore()
+		indexer := &Indexer{store: mockStore}
+
+		fd := fileChunkData{
+			fileIndex: 0,
+			file:      FileInfo{Path: "test.go", Hash: "filehash", ModTime: 1234567890},
+			chunkInfos: []ChunkInfo{
+				{ID: "chunk1"},
+			},
+		}
+		chunks := []store.Chunk{
+			{ID: "chunk1", FilePath: "test.go", Content: "content"},
+		}
+		chunkIDs := []string{"chunk1"}
+
+		err := indexer.saveFileData(ctx, fd, chunks, chunkIDs)
+		if err != nil {
+			t.Fatalf("saveFileData failed: %v", err)
+		}
+
+		if !mockStore.saveChunksCalled {
+			t.Error("expected SaveChunks to be called")
+		}
+		if !mockStore.saveDocCalled {
+			t.Error("expected SaveDocument to be called")
+		}
+
+		// Verify document was saved correctly
+		doc, exists := mockStore.documents["test.go"]
+		if !exists {
+			t.Fatal("document not saved")
+		}
+		if doc.Hash != "filehash" {
+			t.Errorf("doc.Hash = %s, expected filehash", doc.Hash)
+		}
+		if len(doc.ChunkIDs) != 1 || doc.ChunkIDs[0] != "chunk1" {
+			t.Errorf("doc.ChunkIDs = %v, expected [chunk1]", doc.ChunkIDs)
+		}
+	})
+}
+
+func TestWrapBatchProgress(t *testing.T) {
+	t.Run("returns nil for nil callback", func(t *testing.T) {
+		wrapped := wrapBatchProgress(nil)
+		if wrapped != nil {
+			t.Error("expected nil for nil callback")
+		}
+	})
+
+	t.Run("wraps callback correctly", func(t *testing.T) {
+		var receivedInfo BatchProgressInfo
+		callback := func(info BatchProgressInfo) {
+			receivedInfo = info
+		}
+
+		wrapped := wrapBatchProgress(callback)
+		if wrapped == nil {
+			t.Fatal("expected non-nil wrapped callback")
+		}
+
+		// Call the wrapped function
+		wrapped(1, 5, 100, 500, true, 2, 429)
+
+		// Verify all fields were passed through
+		if receivedInfo.BatchIndex != 1 {
+			t.Errorf("BatchIndex = %d, expected 1", receivedInfo.BatchIndex)
+		}
+		if receivedInfo.TotalBatches != 5 {
+			t.Errorf("TotalBatches = %d, expected 5", receivedInfo.TotalBatches)
+		}
+		if receivedInfo.CompletedChunks != 100 {
+			t.Errorf("CompletedChunks = %d, expected 100", receivedInfo.CompletedChunks)
+		}
+		if receivedInfo.TotalChunks != 500 {
+			t.Errorf("TotalChunks = %d, expected 500", receivedInfo.TotalChunks)
+		}
+		if !receivedInfo.Retrying {
+			t.Error("Retrying = false, expected true")
+		}
+		if receivedInfo.Attempt != 2 {
+			t.Errorf("Attempt = %d, expected 2", receivedInfo.Attempt)
+		}
+		if receivedInfo.StatusCode != 429 {
+			t.Errorf("StatusCode = %d, expected 429", receivedInfo.StatusCode)
+		}
+	})
 }

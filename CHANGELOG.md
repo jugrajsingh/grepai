@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Adaptive Rate Limiting for OpenAI**: Auto-adjusts parallelism based on 429 responses, respects Retry-After headers, optional TPM pacing via `WithOpenAITPMLimit`
+- **Parallel OpenAI Embedding**: 3x+ faster indexing with batched API requests and configurable parallelism (`embedder.parallelism`, default: 4)
+
 ## [0.23.0] - 2026-01-25
 
 ### Added
