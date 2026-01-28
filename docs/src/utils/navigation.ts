@@ -26,9 +26,10 @@ export const navigation: NavSection[] = [
       { label: 'Call Graph Analysis', href: '/grepai/trace/', order: 3 },
       { label: 'MCP Integration', href: '/grepai/mcp/', order: 4 },
       { label: 'Claude Code Subagent', href: '/grepai/subagent/', order: 5 },
-      { label: 'Search Boost', href: '/grepai/search-boost/', order: 6 },
-      { label: 'Hybrid Search', href: '/grepai/hybrid-search/', order: 7 },
-      { label: 'Workspace Management', href: '/grepai/workspace/', order: 8 },
+      { label: 'AI Agent Skills', href: '/grepai/skills/', order: 6 },
+      { label: 'Search Boost', href: '/grepai/search-boost/', order: 7 },
+      { label: 'Hybrid Search', href: '/grepai/hybrid-search/', order: 8 },
+      { label: 'Workspace Management', href: '/grepai/workspace/', order: 9 },
     ],
   },
   {
