@@ -19,22 +19,35 @@ Skills are knowledge modules that AI agents can load to understand how to use sp
 Install all 27 skills with a single command:
 
 ```bash
-npx add-skill yoanbernabeu/grepai-skills
+npx skills add yoanbernabeu/grepai-skills
 ```
 
-This works with Claude Code, Cursor, Codex, OpenCode, Windsurf, and 20+ other AI agents.
+This works with Claude Code, Cursor, Codex, OpenCode, Windsurf, and 30+ other AI agents.
 
 ### Install specific skills
 
 ```bash
 # Install only search-related skills
-npx add-skill yoanbernabeu/grepai-skills --skill grepai-search-basics
+npx skills add yoanbernabeu/grepai-skills --skill grepai-search-basics
 
 # Install globally (available in all projects)
-npx add-skill yoanbernabeu/grepai-skills --global
+npx skills add yoanbernabeu/grepai-skills -g
 
 # List all available skills
-npx add-skill yoanbernabeu/grepai-skills --list
+npx skills add yoanbernabeu/grepai-skills --list
+
+# Install to specific agents
+npx skills add yoanbernabeu/grepai-skills -a claude-code -a cursor
+
+# Non-interactive (CI/CD friendly)
+npx skills add yoanbernabeu/grepai-skills --all -y
+```
+
+### Claude Code Plugin
+
+```bash
+/plugin marketplace add yoanbernabeu/grepai-skills
+/plugin install grepai-complete@grepai-skills
 ```
 
 ### Manual installation
@@ -42,6 +55,33 @@ npx add-skill yoanbernabeu/grepai-skills --list
 Copy the `skills/` directory from the repository to:
 - **Global**: `~/.claude/skills/` (or `~/.cursor/skills/`, etc.)
 - **Project**: `.claude/skills/` (or `.cursor/skills/`, etc.)
+
+### Supported AI Agents
+
+| Agent | Project Path | Global Path |
+|-------|--------------|-------------|
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Cursor | `.cursor/skills/` | `~/.cursor/skills/` |
+| Codex | `.codex/skills/` | `~/.codex/skills/` |
+| OpenCode | `.opencode/skill/` | `~/.config/opencode/skill/` |
+| Windsurf | `.windsurf/skills/` | `~/.windsurf/skills/` |
+
+## Skill Packs
+
+Install skills by category:
+
+| Pack | Skills | Description |
+|------|--------|-------------|
+| `grepai-getting-started` | 3 | Installation, Ollama setup, quickstart |
+| `grepai-configuration` | 3 | Init, config reference, ignore patterns |
+| `grepai-embeddings` | 3 | Ollama, OpenAI, LM Studio providers |
+| `grepai-storage` | 3 | GOB, PostgreSQL, Qdrant backends |
+| `grepai-indexing` | 2 | Watch daemon, chunking |
+| `grepai-search` | 4 | Basics, advanced, tips, boosting |
+| `grepai-trace` | 3 | Callers, callees, graphs |
+| `grepai-integration` | 3 | Claude Code, Cursor, MCP tools |
+| `grepai-advanced` | 3 | Workspaces, languages, troubleshooting |
+| **`grepai-complete`** | **27** | **All skills — complete toolkit** |
 
 ## Available Skills
 
@@ -72,6 +112,12 @@ Copy the `skills/` directory from the repository to:
 | `grepai-storage-gob` | Local file storage (default, simple) |
 | `grepai-storage-postgres` | PostgreSQL + pgvector for teams |
 | `grepai-storage-qdrant` | Qdrant for high-performance search |
+
+### Indexing
+| Skill | Description |
+|-------|-------------|
+| `grepai-watch-daemon` | Configure and manage the watch daemon |
+| `grepai-chunking` | Optimize how code is split for embedding |
 
 ### Semantic Search
 | Skill | Description |
@@ -120,10 +166,8 @@ Once installed, just ask your AI agent naturally:
 
 The agent will automatically use the relevant skills to provide accurate guidance.
 
-## External Repository
+## Resources
 
-Skills are maintained in a separate repository to allow independent updates and community contributions.
-
-**Repository**: [github.com/yoanbernabeu/grepai-skills](https://github.com/yoanbernabeu/grepai-skills)
-
-Contributions welcome! See the repository's CONTRIBUTING.md for guidelines.
+- **Skills Repository**: [github.com/yoanbernabeu/grepai-skills](https://github.com/yoanbernabeu/grepai-skills) — Contributions welcome!
+- **Skills CLI**: [github.com/vercel-labs/skills](https://github.com/vercel-labs/skills) — The open agent skills tool
+- **Skills Directory**: [skills.sh](https://skills.sh) — Browse all available skills
