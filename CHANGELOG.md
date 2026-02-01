@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-02-01
+
+### Added
+
+- **TOON Format Support**: Add `--toon`/`-t` flag for token-efficient output format (#95) - @yoanbernabeu
+  - TOON (Token-Oriented Object Notation) uses ~50% fewer tokens than JSON in compact mode
+  - Available on `search` and `trace` commands (callers, callees, graph)
+  - MCP tools now support `format` parameter ("json" or "toon")
+  - Flags `--json` and `--toon` are mutually exclusive
+  - `--compact` now works with both `--json` and `--toon`
+
 ## [0.25.2] - 2026-02-01
 
 ### Fixed
@@ -449,7 +460,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.25.2...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/yoanbernabeu/grepai/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/yoanbernabeu/grepai/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/yoanbernabeu/grepai/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/yoanbernabeu/grepai/compare/v0.24.1...v0.25.0
