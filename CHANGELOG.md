@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-02-01
+
+### Fixed
+
+- **Ollama Progress Reporting**: Add visual progress bar for sequential (Ollama) indexing (#94) - @anyeloamt
+  - Previously, embedding progress appeared frozen during Ollama indexing
+  - Now displays a real-time progress bar matching the scan bar style
+  - Fixes confusing UX where users would cancel thinking grepai was broken
+
 ## [0.25.1] - 2026-01-31
 
 ### Fixed
@@ -440,7 +449,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.25.2...HEAD
+[0.25.2]: https://github.com/yoanbernabeu/grepai/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/yoanbernabeu/grepai/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/yoanbernabeu/grepai/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/yoanbernabeu/grepai/compare/v0.24.0...v0.24.1
