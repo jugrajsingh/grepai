@@ -361,6 +361,12 @@ func (s *GOBSymbolStore) GetCallGraph(ctx context.Context, symbolName string, de
 					graph.Edges = append(graph.Edges, edge)
 					edgeSeen[edgeKey] = true
 				}
+				// Ensure caller node is present in the graph.
+				if _, exists := graph.Nodes[edge.Caller]; !exists {
+					if syms, ok := s.index.Symbols[edge.Caller]; ok && len(syms) > 0 {
+						graph.Nodes[edge.Caller] = syms[0]
+					}
+				}
 			}
 		}
 	}
