@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-02-19
+
+### Added
+
+- **Synthetic & OpenRouter Providers**: Add Synthetic API and OpenRouter as new embedding providers (#106) - @Revaz-Goguadze
+  - Synthetic API (`synthetic`): Cloud embedding via `https://api.synthetic.new` with `nomic-embed-text-v1.5` (768 dims)
+  - OpenRouter (`openrouter`): Multi-provider gateway via `https://openrouter.ai/api/v1` with model selection (text-embedding-3-small, text-embedding-3-large, qwen3-embedding-8b)
+  - Embedder factory pattern (`NewFromConfig`/`NewFromWorkspaceConfig`) centralizing provider initialization across CLI and MCP server
+  - Interactive model selection for OpenRouter during `grepai init`
+  - `--model` flag for non-interactive OpenRouter configuration
+
 ## [0.31.0] - 2026-02-13
 
 ### Added
@@ -556,7 +567,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/yoanbernabeu/grepai/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/yoanbernabeu/grepai/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/yoanbernabeu/grepai/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/yoanbernabeu/grepai/compare/v0.28.0...v0.29.0
