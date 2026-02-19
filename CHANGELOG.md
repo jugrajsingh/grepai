@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-02-19
+
+### Changed
+
+- **Dependencies**: Bump `github.com/mark3labs/mcp-go` from 0.43.2 to 0.44.0 (#145) - @dependabot
+
 ## [0.32.0] - 2026-02-19
 
 ### Added
@@ -567,7 +573,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release
 
-[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/yoanbernabeu/grepai/compare/v0.32.1...HEAD
+[0.32.1]: https://github.com/yoanbernabeu/grepai/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/yoanbernabeu/grepai/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/yoanbernabeu/grepai/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/yoanbernabeu/grepai/compare/v0.29.0...v0.30.0
